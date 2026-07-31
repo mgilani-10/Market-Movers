@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOVERS// Big Cap Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d10;
+    --panel:#11151a;
+    --panel-2:#0d1114;
+    --border:#232a32;
+    --border-soft:#1a2128;
+    --text:#d8dee4;
+    --text-dim:#5f6b78;
+    --text-mid:#8b96a3;
+    --green:#26d07c;
+    --green-dim:#0f2e20;
+    --green-line:#1c5c3f;
+    --red:#ff5c5c;
+    --red-dim:#331414;
+    --red-line:#7a2c2c;
+    --amber:#f0b90b;
+    --amber-dim:#2e2408;
+    --blue:#4da3ff;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+    --sans:'IBM Plex Sans', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--text);font-family:var(--mono);
+    min-height:100vh;-webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--amber);color:#000;}
+
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand .mark{font-weight:700;font-size:18px;letter-spacing:0.5px;color:var(--text);}
+  .brand .mark span{color:var(--amber);}
+  .brand .sub{font-size:11px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+  .status-cluster{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--text-mid);}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--text-dim);display:inline-block;margin-right:6px;}
+  .live-dot.on{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
+  .clock{font-variant-numeric:tabular-nums;color:var(--text);}
+  button{
+    font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:0.3px;
+    background:var(--panel-2);color:var(--text);border:1px solid var(--border);
+    padding:8px 14px;border-radius:3px;cursor:pointer;transition:all .15s;
+  }
+  button:hover{border-color:var(--text-mid);color:#fff;}
+  button:active{transform:scale(0.97);}
+  button.primary{background:var(--amber);color:#000;border-color:var(--amber);}
+  button.primary:hover{background:#ffcc2e;border-color:#ffcc2e;color:#000;}
+  button:disabled{opacity:0.4;cursor:not-allowed;}
+  button.ghost{background:transparent;}
+
+  .marquee-wrap{
+    border-bottom:1px solid var(--border);background:var(--panel-2);
+    overflow:hidden;white-space:nowrap;position:relative;height:34px;display:flex;align-items:center;
+  }
+  .marquee-wrap.empty{display:none;}
+  .marquee-track{display:inline-flex;gap:36px;padding-left:100%;animation:scroll 32s linear infinite;}
+  .marquee-wrap:hover .marquee-track{animation-play-state:paused;}
+  @keyframes scroll{from{transform:translateX(0);}to{transform:translateX(-100%);}}
+  .tick-item{font-size:12px;font-weight:600;display:inline-flex;gap:6px;align-items:center;}
+  .tick-item.up{color:var(--green);}
+  .tick-item.down{color:var(--red);}
+  .tick-flag{font-size:9px;background:var(--amber);color:#000;padding:1px 4px;border-radius:2px;font-weight:700;}
+
+  .setup{
+    max-width:500px;margin:60px auto;padding:32px;background:var(--panel);
+    border:1px solid var(--border);border-radius:6px;
+  }
+  .setup h1{font-family:var(--sans);font-size:20px;margin:0 0 6px;}
+  .setup p{color:var(--text-mid);font-size:13px;line-height:1.6;margin:0 0 20px;}
+  .setup input{
+    width:100%;font-family:var(--mono);font-size:13px;background:var(--panel-2);
+    border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:3px;margin-bottom:12px;
+  }
+  .setup input:focus{outline:none;border-color:var(--amber);}
+  .setup .steps{font-size:12px;color:var(--text-dim);line-height:1.8;margin-bottom:20px;}
+  .setup .steps b{color:var(--text-mid);}
+
+  .controls{
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+    padding:14px 20px;border-bottom:1px solid var(--border-soft);
+  }
+  .chip-group{display:flex;gap:6px;}
+  .chip{
+    font-family:var(--mono);font-size:11px;font-weight:600;padding:6px 12px;border-radius:20px;
+    border:1px solid var(--border);background:transparent;color:var(--text-mid);cursor:pointer;letter-spacing:0.3px;
+  }
+  .chip.active{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+  .meta-right{display:flex;align-items:center;gap:14px;font-size:11px;color:var(--text-dim);flex-wrap:wrap;}
+  select{
+    font-family:var(--mono);font-size:11px;background:var(--panel-2);color:var(--text-mid);
+    border:1px solid var(--border);padding:6px 8px;border-radius:3px;
+  }
+
+  .section-label{
+    font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;
+    color:var(--text-dim);padding:16px 20px 8px;
+  }
+
+  .board{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border-soft);}
+  .col{background:var(--bg);display:flex;flex-direction:column;min-height:120px;}
+  .col-head{
+    padding:12px 16px;display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .col-head h2{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;margin:0;}
+  .col-head.gainers h2{color:var(--green);}
+  .col-head.losers h2{color:var(--red);}
+  .col-count{font-size:11px;color:var(--text-dim);}
+  .row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:9px 16px;border-bottom:1px solid var(--border-soft);font-size:12.5px;
+  }
+  .row:hover{background:var(--panel);}
+  .row.flag.up{border-left:2px solid var(--green);}
+  .row.flag.down{border-left:2px solid var(--red);}
+  .sym{font-weight:700;color:var(--text);min-width:52px;}
+  .badge5{font-size:9px;background:var(--amber);color:#000;padding:1px 4px;border-radius:2px;font-weight:700;margin-left:6px;vertical-align:middle;}
+  .price{color:var(--text-mid);min-width:64px;text-align:right;}
+  .pct{font-weight:700;min-width:70px;text-align:right;}
+  .pct.up{color:var(--green);}
+  .pct.down{color:var(--red);}
+  .row-left{display:flex;align-items:center;}
+  .row-right{display:flex;gap:14px;align-items:center;}
+  .empty-state{padding:24px 16px;color:var(--text-dim);font-size:12px;text-align:center;}
+
+  .heatmap{
+    display:grid;grid-template-columns:repeat(auto-fill, minmax(95px,1fr));gap:5px;
+    padding:8px 20px 20px;
+  }
+  .tile{
+    border-radius:4px;padding:8px 9px;border:1px solid var(--border-soft);
+    display:flex;flex-direction:column;gap:3px;position:relative;
+  }
+  .tile .t-sym{font-weight:700;font-size:12px;color:#fff;}
+  .tile .t-pct{font-size:11px;font-weight:600;}
+  .tile .t-price{font-size:10px;color:rgba(255,255,255,0.65);}
+  .tile .t-flag{position:absolute;top:5px;right:5px;font-size:8px;background:var(--amber);color:#000;padding:1px 3px;border-radius:2px;font-weight:700;}
+
+  .footer{
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+    padding:12px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--text-dim);
+  }
+
+  .banner{
+    margin:14px 20px 0;padding:10px 14px;border-radius:4px;font-size:12px;
+    border:1px solid var(--red-line);background:var(--red-dim);color:#ffb3b3;
+  }
+  .banner.info{border-color:var(--border);background:var(--panel);color:var(--text-mid);}
+
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;
+    z-index:50;padding:20px;
+  }
+  .modal{
+    background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:24px;
+    max-width:520px;width:100%;max-height:80vh;overflow:auto;
+  }
+  .modal h3{font-family:var(--sans);font-size:15px;margin:0 0 8px;}
+  .modal p{font-size:12px;color:var(--text-mid);line-height:1.6;margin:0 0 12px;}
+  .modal textarea{
+    width:100%;min-height:140px;font-family:var(--mono);font-size:12px;background:var(--panel-2);
+    border:1px solid var(--border);color:var(--text);padding:10px;border-radius:3px;resize:vertical;
+  }
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
+
+  @media (max-width:820px){
+    .board{grid-template-columns:1fr;}
+    .status-cluster{font-size:11px;}
+  }
+  .skel{color:var(--text-dim);padding:16px 20px;font-size:12px;}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+(function(){
+  const QUOTE_ENDPOINT = 'https://finnhub.io/api/v1/quote';
+  const KEY_STORAGE = 'fh-api-key';
+  const PREFS_STORAGE = 'fh-prefs';
+  const WATCHLIST_STORAGE = 'fh-watchlist';
+
+  const DEFAULT_WATCHLIST = [
+    'AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','AVGO','LLY','JPM',
+    'V','UNH','XOM','MA','PG','HD','JNJ','COST','ABBV','MRK',
+    'BAC','CVX','KO','PEP','ADBE','CRM','TMO','MCD','CSCO','ABT',
+    'ACN','LIN','TXN','WFC','DIS','VZ','CMCSA','NFLX','INTC','AMD',
+    'QCOM','PM','NKE','UPS','RTX','HON','LOW','SBUX','IBM','GS','DRAM',
+    'SCHD','AU','NOW','ORCL','LEN','CMG','MOBX','KTOS','IREN',
+    'CLSK','HCMC','SENS','EHTH','NOK','SOUN','FTEC','JEPQ','WQTM','NASA',
+    'SKHY','MU','USAR','COF','SOXL','LEN'
+  ];
+
+  let state = {
+    apiKey: null,
+    watchlist: DEFAULT_WATCHLIST.slice(),
+    quotes: [],
+    loading: false,
+    error: null,
+    lastUpdated: null,
+    filterFive: false,
+    autoRefreshMin: 0,
+    showEditModal: false
+  };
+
+  let autoTimer = null;
+  let clockTimer = null;
+
+  async function loadPersisted(){
+    try{
+      const k = await window.storage.get(KEY_STORAGE, false);
+      if(k) state.apiKey = k.value;
+    }catch(e){}
+    try{
+      const w = await window.storage.get(WATCHLIST_STORAGE, false);
+      if(w) state.watchlist = JSON.parse(w.value);
+    }catch(e){}
+    try{
+      const p = await window.storage.get(PREFS_STORAGE, false);
+      if(p){
+        const parsed = JSON.parse(p.value);
+        state.filterFive = parsed.filterFive ?? false;
+        state.autoRefreshMin = parsed.autoRefreshMin ?? 0;
+      }
+    }catch(e){}
+  }
+
+  async function savePrefs(){
+    try{
+      await window.storage.set(PREFS_STORAGE, JSON.stringify({
+        filterFive: state.filterFive, autoRefreshMin: state.autoRefreshMin
+      }), false);
+    }catch(e){}
+  }
+
+  async function saveWatchlist(){
+    try{ await window.storage.set(WATCHLIST_STORAGE, JSON.stringify(state.watchlist), false); }catch(e){}
+  }
+
+  async function saveKey(k){
+    try{ await window.storage.set(KEY_STORAGE, k, false); }catch(e){}
+  }
+
+  async function clearKey(){
+    state.apiKey = null;
+    state.quotes = [];
+    try{ await window.storage.delete(KEY_STORAGE, false); }catch(e){}
+    render();
+  }
+
+  function delay(ms){ return new Promise(res => setTimeout(res, ms)); }
+
+  async function fetchOne(symbol){
+    const url = `${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(state.apiKey)}`;
+    const res = await fetch(url);
+    if(res.status === 401 || res.status === 403){
+      throw new Error('AUTH');
+    }
+    const json = await res.json();
+    return { symbol, ...json };
+  }
+
+  async function fetchAll(){
+    if(!state.apiKey) return;
+    state.loading = true;
+    state.error = null;
+    render();
+    try{
+      const results = [];
+      const list = state.watchlist;
+      const CONCURRENCY = 8;
+      for(let i=0; i<list.length; i+=CONCURRENCY){
+        const batch = list.slice(i, i+CONCURRENCY);
+        const batchResults = await Promise.all(batch.map(sym => fetchOne(sym).catch(e => ({symbol: sym, error: e.message}))));
+        results.push(...batchResults);
+        if(i+CONCURRENCY < list.length) await delay(120);
+      }
+      const authFailed = results.some(r => r.error === 'AUTH');
+      if(authFailed){
+        state.error = 'Invalid or missing API key. Check your Finnhub key and try again.';
+      } else {
+        state.quotes = results.filter(r => typeof r.c === 'number' && r.c > 0);
+        state.lastUpdated = new Date();
+        if(state.quotes.length === 0){
+          state.error = 'No quotes came back. Your watchlist symbols may be invalid, or the market data feed is unavailable.';
+        }
+      }
+    }catch(e){
+      state.error = 'Network request failed. Check your connection and try again.';
+    }
+    state.loading = false;
+    render();
+  }
+
+  function setAutoRefresh(min){
+    state.autoRefreshMin = min;
+    savePrefs();
+    if(autoTimer) clearInterval(autoTimer);
+    if(min > 0){
+      autoTimer = setInterval(fetchAll, min*60*1000);
+    }
+    render();
+  }
+
+  function withPct(q){ return { ...q, pct: typeof q.dp === 'number' ? q.dp : 0 }; }
+
+  function getGainers(){
+    let rows = state.quotes.map(withPct).filter(r => r.pct > 0);
+    if(state.filterFive) rows = rows.filter(r => r.pct >= 5);
+    rows.sort((a,b) => b.pct - a.pct);
+    return rows;
+  }
+  function getLosers(){
+    let rows = state.quotes.map(withPct).filter(r => r.pct < 0);
+    if(state.filterFive) rows = rows.filter(r => Math.abs(r.pct) >= 5);
+    rows.sort((a,b) => a.pct - b.pct);
+    return rows;
+  }
+  function getAllSorted(){
+    return state.quotes.map(withPct).sort((a,b) => b.pct - a.pct);
+  }
+
+  function buildMarquee(){
+    const movers = state.quotes.map(withPct).filter(r => Math.abs(r.pct) >= 5);
+    movers.sort((a,b) => Math.abs(b.pct) - Math.abs(a.pct));
+    return movers.slice(0,12);
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function heatColor(pct){
+    const intensity = Math.min(Math.abs(pct)/4, 1);
+    const alpha = 0.12 + 0.55*intensity;
+    return pct >= 0 ? `rgba(38,208,124,${alpha.toFixed(2)})` : `rgba(255,92,92,${alpha.toFixed(2)})`;
+  }
+
+  function renderSetup(){
+    const app = document.getElementById('app');
+    app.innerHTML = `
+      <div class="setup">
+        <h1>MOVERS<span style="color:var(--amber)">//</span> setup</h1>
+        <p>This terminal tracks real-time gainers and losers across a curated list of ~50 large &amp; mega-cap stocks &mdash; no small caps, no penny-stock noise. Powered by Finnhub's free tier (real-time US quotes, 60 requests/min).</p>
+        <div class="steps">
+          <b>1.</b> Go to finnhub.io/register<br>
+          <b>2.</b> Sign up free, copy the API key from your dashboard<br>
+          <b>3.</b> Paste it below &mdash; it's stored only for you, not shared<br>
+          <b>4.</b> Free tier: real-time quotes, 60 calls/min &mdash; plenty for frequent refreshes
+        </div>
+        <input id="key-input" type="text" placeholder="Paste your Finnhub API key" />
+        <button class="primary" id="save-key-btn" style="width:100%;padding:11px;">Connect</button>
+      </div>
+    `;
+    document.getElementById('save-key-btn').onclick = async () => {
+      const val = document.getElementById('key-input').value.trim();
+      if(!val) return;
+      state.apiKey = val;
+      await saveKey(val);
+      await fetchAll();
+    };
+    document.getElementById('key-input').addEventListener('keydown', e => {
+      if(e.key === 'Enter') document.getElementById('save-key-btn').click();
+    });
+  }
+
+  function renderRow(r){
+    const flagged = Math.abs(r.pct) >= 5;
+    const upClass = r.pct >= 0 ? 'up' : 'down';
+    return `
+      <div class="row ${flagged?'flag '+upClass:''}">
+        <div class="row-left">
+          <span class="sym">${escapeHtml(r.symbol)}</span>
+          ${flagged?'<span class="badge5">5%+</span>':''}
+        </div>
+        <div class="row-right">
+          <span class="price">$${r.c.toFixed(2)}</span>
+          <span class="pct ${upClass}">${r.pct>=0?'+':''}${r.pct.toFixed(2)}%</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderColumn(title, colorClass, list){
+    const rows = list.length
+      ? list.map(renderRow).join('')
+      : `<div class="empty-state">${state.filterFive ? 'No moves ≥5% right now' : 'No data'}</div>`;
+    return `
+      <div class="col">
+        <div class="col-head ${colorClass}">
+          <h2>${title}</h2>
+          <span class="col-count">${list.length}</span>
+        </div>
+        ${rows}
+      </div>
+    `;
+  }
+
+  function renderHeatmap(){
+    const all = getAllSorted();
+    if(!all.length) return '';
+    const tiles = all.map(r => {
+      const flagged = Math.abs(r.pct) >= 5;
+      return `
+        <div class="tile" style="background:${heatColor(r.pct)};border-color:${r.pct>=0?'var(--green-line)':'var(--red-line)'}">
+          ${flagged?'<span class="t-flag">5%+</span>':''}
+          <span class="t-sym">${escapeHtml(r.symbol)}</span>
+          <span class="t-pct" style="color:${r.pct>=0?'#8ef0c0':'#ffb3b3'}">${r.pct>=0?'+':''}${r.pct.toFixed(2)}%</span>
+          <span class="t-price">$${r.c.toFixed(2)}</span>
+        </div>
+      `;
+    }).join('');
+    return `<div class="section-label">Full Watchlist &middot; ${all.length} stocks</div><div class="heatmap">${tiles}</div>`;
+  }
+
+  function renderModal(){
+    if(!state.showEditModal) return '';
+    return `
+      <div class="modal-backdrop" id="modal-backdrop">
+        <div class="modal">
+          <h3>Edit watchlist</h3>
+          <p>Comma-separated tickers. Keep it to liquid large/mega-caps for cleaner signal &mdash; this list drives both the gainers/losers panels and the heatmap.</p>
+          <textarea id="watchlist-textarea">${state.watchlist.join(', ')}</textarea>
+          <div class="modal-actions">
+            <button class="ghost" id="reset-watchlist-btn">Reset to default</button>
+            <button class="ghost" id="cancel-modal-btn">Cancel</button>
+            <button class="primary" id="save-watchlist-btn">Save &amp; refresh</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function render(){
+    if(!state.apiKey){
+      renderSetup();
+      return;
+    }
+    const app = document.getElementById('app');
+    const marquee = buildMarquee();
+    const marqueeHtml = marquee.length ? marquee.map(r => `
+      <span class="tick-item ${r.pct>=0?'up':'down'}">
+        ${escapeHtml(r.symbol)} ${r.pct>=0?'▲':'▼'} ${r.pct>=0?'+':''}${r.pct.toFixed(2)}%
+        <span class="tick-flag">5%+</span>
+      </span>
+    `).join('') : '';
+
+    let boardHtml;
+    if(state.loading && state.quotes.length===0){
+      boardHtml = `<div class="skel">Pulling live quotes for ${state.watchlist.length} large-cap stocks&hellip;</div>`;
+    } else if(state.quotes.length){
+      const gainers = getGainers();
+      const losers = getLosers();
+      boardHtml = `
+        <div class="board">
+          ${renderColumn('Top Gainers','gainers',gainers)}
+          ${renderColumn('Top Losers','losers',losers)}
+        </div>
+        ${renderHeatmap()}
+      `;
+    } else {
+      boardHtml = `<div class="skel">No data yet. Hit refresh to pull live quotes.</div>`;
+    }
+
+    app.innerHTML = `
+      <div class="topbar">
+        <div class="brand">
+          <span class="mark">MOVERS<span>//</span></span>
+          <span class="sub">${state.watchlist.length} large caps &middot; live</span>
+        </div>
+        <div class="status-cluster">
+          <span><span class="live-dot ${state.autoRefreshMin>0?'on':''}"></span>${state.autoRefreshMin>0?'AUTO '+state.autoRefreshMin+'m':'MANUAL'}</span>
+          <span class="clock" id="clock">--:--:--</span>
+          <button id="refresh-btn" class="primary" ${state.loading?'disabled':''}>${state.loading?'Loading…':'Refresh'}</button>
+          <button id="edit-watchlist-btn" class="ghost">Watchlist</button>
+          <button id="settings-btn" class="ghost">⚙</button>
+        </div>
+      </div>
+
+      <div class="marquee-wrap ${marquee.length?'':'empty'}">
+        <div class="marquee-track">${marqueeHtml}${marqueeHtml}</div>
+      </div>
+
+      ${state.error ? `<div class="banner">${escapeHtml(state.error)}</div>` : ''}
+
+      <div class="controls">
+        <div class="chip-group">
+          <button class="chip ${!state.filterFive?'active':''}" id="filter-all">All moves</button>
+          <button class="chip ${state.filterFive?'active':''}" id="filter-five">≥5% only</button>
+        </div>
+        <div class="meta-right">
+          <span>Auto-refresh
+            <select id="auto-select">
+              <option value="0" ${state.autoRefreshMin===0?'selected':''}>Off</option>
+              <option value="1" ${state.autoRefreshMin===1?'selected':''}>1 min</option>
+              <option value="5" ${state.autoRefreshMin===5?'selected':''}>5 min</option>
+              <option value="15" ${state.autoRefreshMin===15?'selected':''}>15 min</option>
+              <option value="30" ${state.autoRefreshMin===30?'selected':''}>30 min</option>
+            </select>
+          </span>
+        </div>
+      </div>
+
+      ${boardHtml}
+
+      <div class="footer">
+        <span>${state.lastUpdated ? 'Updated ' + state.lastUpdated.toLocaleTimeString() : 'Not yet updated'}</span>
+        <span>Data via Finnhub &middot; real-time US quotes &middot; ${state.watchlist.length} symbols/refresh</span>
+      </div>
+
+      ${renderModal()}
+    `;
+
+    document.getElementById('refresh-btn').onclick = fetchAll;
+    document.getElementById('settings-btn').onclick = () => {
+      if(confirm('Disconnect this API key and return to setup?')) clearKey();
+    };
+    document.getElementById('edit-watchlist-btn').onclick = () => { state.showEditModal = true; render(); };
+    document.getElementById('filter-five').onclick = () => { state.filterFive = true; savePrefs(); render(); };
+    document.getElementById('filter-all').onclick = () => { state.filterFive = false; savePrefs(); render(); };
+    document.getElementById('auto-select').onchange = (e) => { setAutoRefresh(parseInt(e.target.value,10)); };
+
+    const backdrop = document.getElementById('modal-backdrop');
+    if(backdrop){
+      backdrop.addEventListener('click', (e) => { if(e.target === backdrop){ state.showEditModal=false; render(); } });
+      document.getElementById('cancel-modal-btn').onclick = () => { state.showEditModal=false; render(); };
+      document.getElementById('reset-watchlist-btn').onclick = () => {
+        document.getElementById('watchlist-textarea').value = DEFAULT_WATCHLIST.join(', ');
+      };
+      document.getElementById('save-watchlist-btn').onclick = async () => {
+        const raw = document.getElementById('watchlist-textarea').value;
+        const list = raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+        if(list.length === 0) return;
+        state.watchlist = list;
+        state.showEditModal = false;
+        await saveWatchlist();
+        await fetchAll();
+      };
+    }
+
+    startClock();
+  }
+
+  function startClock(){
+    if(clockTimer) clearInterval(clockTimer);
+    const el = document.getElementById('clock');
+    if(!el) return;
+    const tick = () => {
+      const c = document.getElementById('clock');
+      if(c) c.textContent = new Date().toLocaleTimeString();
+    };
+    tick();
+    clockTimer = setInterval(tick, 1000);
+  }
+
+  (async function init(){
+    await loadPersisted();
+    render();
+    if(state.apiKey){
+      await fetchAll();
+      if(state.autoRefreshMin > 0) setAutoRefresh(state.autoRefreshMin);
+    }
+  })();
+})();
+</script>
+</body>
+</html>
