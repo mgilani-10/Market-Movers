@@ -199,10 +199,10 @@
     'V','UNH','XOM','MA','PG','HD','JNJ','COST','ABBV','MRK',
     'BAC','CVX','KO','PEP','ADBE','CRM','TMO','MCD','CSCO','ABT',
     'ACN','LIN','TXN','WFC','DIS','VZ','CMCSA','NFLX','INTC','AMD',
-    'QCOM','PM','NKE','UPS','RTX','HON','LOW','SBUX','IBM','GS','DRAM',
-    'SCHD','AU','NOW','ORCL','LEN','CMG','MOBX','KTOS','IREN','HOOD'
-    'CLSK','HCMC','SENS','EHTH','NOK','SOUN','FTEC','JEPQ','WQTM','NASA','APLD','WULF','SPCX','TSLL'
-    'SKHY','MU','USAR','COF','SOXL','LEN','AVGO','COHH','AVGG','METU','CRWD','CRWL','PANW','PANG','SAIL'
+    'QCOM','PM','NKE','UPS','RTX','HON','LOW','SBUX','IBM','GS',
+    'DRAM','SCHD','AU','NOW','ORCL','LEN','CMG','MOBX','KTOS','IREN','HOOD',
+    'CLSK','HCMC','SENS','EHTH','NOK','SOUN','FTEC','JEPQ','WQTM','NASA','APLD','WULF','SPCX','TSLL',
+    'SKHY','MU','USAR','COF','SOXL','COHH','AVGG','METU','CRWD','CRWL','PANW','PANG','SAIL'
   ];
 
   let state = {
@@ -222,17 +222,17 @@
 
   async function loadPersisted(){
     try{
-      const k = await window.storage.get(KEY_STORAGE, false);
-      if(k) state.apiKey = k.value;
+      const k = localStorage.getItem(KEY_STORAGE);
+      if(k) state.apiKey = k;
     }catch(e){}
     try{
-      const w = await window.storage.get(WATCHLIST_STORAGE, false);
-      if(w) state.watchlist = JSON.parse(w.value);
+      const w = localStorage.getItem(WATCHLIST_STORAGE);
+      if(w) state.watchlist = JSON.parse(w);
     }catch(e){}
     try{
-      const p = await window.storage.get(PREFS_STORAGE, false);
+      const p = localStorage.getItem(PREFS_STORAGE);
       if(p){
-        const parsed = JSON.parse(p.value);
+        const parsed = JSON.parse(p);
         state.filterFive = parsed.filterFive ?? false;
         state.autoRefreshMin = parsed.autoRefreshMin ?? 0;
       }
@@ -241,24 +241,24 @@
 
   async function savePrefs(){
     try{
-      await window.storage.set(PREFS_STORAGE, JSON.stringify({
+      localStorage.setItem(PREFS_STORAGE, JSON.stringify({
         filterFive: state.filterFive, autoRefreshMin: state.autoRefreshMin
-      }), false);
+      }));
     }catch(e){}
   }
 
   async function saveWatchlist(){
-    try{ await window.storage.set(WATCHLIST_STORAGE, JSON.stringify(state.watchlist), false); }catch(e){}
+    try{ localStorage.setItem(WATCHLIST_STORAGE, JSON.stringify(state.watchlist)); }catch(e){}
   }
 
   async function saveKey(k){
-    try{ await window.storage.set(KEY_STORAGE, k, false); }catch(e){}
+    try{ localStorage.setItem(KEY_STORAGE, k); }catch(e){}
   }
 
   async function clearKey(){
     state.apiKey = null;
     state.quotes = [];
-    try{ await window.storage.delete(KEY_STORAGE, false); }catch(e){}
+    try{ localStorage.removeItem(KEY_STORAGE); }catch(e){}
     render();
   }
 
@@ -270,34 +270,42 @@
     if(res.status === 401 || res.status === 403){
       throw new Error('AUTH');
     }
+    if(res.status === 429){
+      throw new Error('RATE');
+    }
     const json = await res.json();
     return { symbol, ...json };
   }
 
   async function fetchAll(){
-    if(!state.apiKey) return;
+    if(!state.apiKey || state.loading) return;
     state.loading = true;
     state.error = null;
     render();
     try{
       const results = [];
       const list = state.watchlist;
-      const CONCURRENCY = 8;
+      // Finnhub free tier = 60 calls/min. 5 calls every 5.6s is about 53/min, safely under.
+      const CONCURRENCY = 5;
+      const PAUSE_MS = 5600;
+      let authFailed = false, rateHit = false;
       for(let i=0; i<list.length; i+=CONCURRENCY){
         const batch = list.slice(i, i+CONCURRENCY);
         const batchResults = await Promise.all(batch.map(sym => fetchOne(sym).catch(e => ({symbol: sym, error: e.message}))));
         results.push(...batchResults);
-        if(i+CONCURRENCY < list.length) await delay(120);
-      }
-      const authFailed = results.some(r => r.error === 'AUTH');
-      if(authFailed){
-        state.error = 'Invalid or missing API key. Check your Finnhub key and try again.';
-      } else {
+        if(batchResults.some(r => r.error === 'AUTH')){ authFailed = true; break; }
+        if(batchResults.some(r => r.error === 'RATE')) rateHit = true;
         state.quotes = results.filter(r => typeof r.c === 'number' && r.c > 0);
         state.lastUpdated = new Date();
-        if(state.quotes.length === 0){
-          state.error = 'No quotes came back. Your watchlist symbols may be invalid, or the market data feed is unavailable.';
-        }
+        render();
+        if(i+CONCURRENCY < list.length) await delay(PAUSE_MS);
+      }
+      if(authFailed){
+        state.error = 'Invalid or missing API key. Check your Finnhub key and try again.';
+      } else if(state.quotes.length === 0){
+        state.error = 'No quotes came back. Your watchlist symbols may be invalid, or the market data feed is unavailable.';
+      } else if(rateHit){
+        state.error = 'Hit Finnhub\'s 60 calls/min limit, so some symbols were skipped. Wait a minute and refresh, or trim the watchlist.';
       }
     }catch(e){
       state.error = 'Network request failed. Check your connection and try again.';
@@ -506,7 +514,6 @@
           <span>Auto-refresh
             <select id="auto-select">
               <option value="0" ${state.autoRefreshMin===0?'selected':''}>Off</option>
-              <option value="1" ${state.autoRefreshMin===1?'selected':''}>1 min</option>
               <option value="5" ${state.autoRefreshMin===5?'selected':''}>5 min</option>
               <option value="15" ${state.autoRefreshMin===15?'selected':''}>15 min</option>
               <option value="30" ${state.autoRefreshMin===30?'selected':''}>30 min</option>
